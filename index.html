@@ -1,0 +1,150 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>杰</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
+        body{background:#f5f5f5;display:flex;flex-direction:column;align-items:center;padding:20px}
+        #gameBox{border:2px solid #333;background:#fff;overflow:hidden}
+        .info{margin-bottom:10px;font-size:18px}
+        .tip{margin-top:10px;color:#666;font-size:14px}
+    </style>
+</head>
+<body>
+    <div class="info">得分：<span id="score">0</span></div>
+    <canvas id="gameBox" width="800" height="200"></canvas>
+    <div class="tip">操作：空格 / 上箭头 = 跳跃 | 下箭头 = 下蹲躲避飞鸟</div>
+
+    <script>
+        const canvas = document.getElementById('gameBox');
+        const ctx = canvas.getContext('2d');
+        const scoreDom = document.getElementById('score');
+
+        // 游戏配置
+        let score = 0, gameSpeed = 6, isGameOver = false;
+        const gravity = 0.6;
+
+        // 恐龙对象
+        const dino = {
+            x:50,y:150,w:44,h:47,vy:0,isJump:false,isDown:false,frame:0
+        }
+        // 障碍物数组
+        let obstacles = [];
+        // 地面偏移
+        let groundX = 0;
+
+        // 键盘监听
+        document.addEventListener('keydown',e=>{
+            if(isGameOver && e.code==='Space') resetGame();
+            if((e.code==='Space'||e.code==='ArrowUp')&&!dino.isJump){
+                dino.vy = -15;
+                dino.isJump = true;
+            }
+            if(e.code==='ArrowDown') dino.isDown=true;
+        })
+        document.addEventListener('keyup',e=>{
+            if(e.code==='ArrowDown') dino.isDown=false;
+        })
+
+        // 生成仙人掌/飞鸟
+        function createObs(){
+            const ran = Math.random();
+            if(ran<0.65){
+                // 仙人掌
+                obstacles.push({x:canvas.width,y:150,w:20,h:38,type:'cactus'})
+            }else{
+                // 飞鸟
+                obstacles.push({x:canvas.width,y:120,w:46,h:30,type:'bird'})
+            }
+        }
+
+        // 碰撞检测
+        function hitCheck(a,b){
+            return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y
+        }
+
+        // 重置游戏
+        function resetGame(){
+            score=0;gameSpeed=6;isGameOver=false;obstacles=[];
+            dino.y=150;dino.vy=0;dino.isJump=false;
+        }
+
+        // 游戏主循环
+        function loop(){
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            scoreDom.innerText = Math.floor(score);
+            if(!isGameOver){
+                score += 0.2;
+                gameSpeed = 6 + Math.floor(score/500);
+
+                // 恐龙物理下落
+                dino.vy += gravity;
+                dino.y += dino.vy;
+                const groundY = dino.isDown?172:150;
+                if(dino.y >= groundY){
+                    dino.y = groundY;
+                    dino.vy = 0;
+                    dino.isJump = false;
+                }
+
+                // 随机生成障碍物
+                if(Math.random()<0.018) createObs();
+
+                // 更新障碍物
+                for(let i=obstacles.length-1;i>=0;i--){
+                    let obs = obstacles[i];
+                    obs.x -= gameSpeed;
+                    // 超出屏幕删除
+                    if(obs.x+obs.w<0) obstacles.splice(i,1);
+                    // 碰撞判定
+                    let dinoBox = {
+                        x:dino.x+6,y:dino.y+4,w:dino.w-12,h:dino.h-8
+                    }
+                    if(hitCheck(dinoBox,obs)) isGameOver=true;
+                }
+
+                // 地面滚动
+                groundX -= gameSpeed;
+                if(groundX <= -40) groundX =0;
+            }
+
+            // ========== 绘图 ==========
+            // 绘制地面横线
+            ctx.beginPath();
+            ctx.moveTo(0,195);
+            ctx.lineTo(canvas.width,195);
+            ctx.stroke();
+
+            // 绘制恐龙
+            ctx.fillStyle='#333';
+            if(dino.isDown){
+                ctx.fillRect(dino.x,dino.y,dino.w+16,dino.h-12);
+            }else{
+                ctx.fillRect(dino.x,dino.y,dino.w,dino.h);
+            }
+
+            // 绘制障碍物
+            obstacles.forEach(obs=>{
+                if(obs.type==='cactus'){
+                    ctx.fillStyle='#2d882d';
+                    ctx.fillRect(obs.x,obs.y,obs.w,obs.h);
+                }else{
+                    ctx.fillStyle='#555';
+                    ctx.fillRect(obs.x,obs.y,obs.w,obs.h);
+                }
+            })
+
+            // 游戏结束文字
+            if(isGameOver){
+                ctx.fillStyle='#f33';
+                ctx.font='32px Arial';
+                ctx.textAlign='center';
+                ctx.fillText('游戏结束，按空格键重新开始',canvas.width/2,100);
+            }
+            requestAnimationFrame(loop);
+        }
+        loop();
+    </script>
+</body>
+</html>
